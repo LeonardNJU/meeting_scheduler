@@ -41,7 +41,7 @@ class RoleFrame(QWidget):
     通用角色界面 (Alice / Bob / ZY)，内部用 step 决定当前子阶段，
     每点一次 'CALC'（下一步）就推进一步并刷新导航提示。
     """
-    def __init__(self, role: str, back_to_home):
+    def __init__(self, role: str, back_to_home) -> None:
         super().__init__()
         self.role = role            # 'alice' | 'bob' | 'zy'
         self.step = 0               # 子阶段索引
@@ -87,17 +87,21 @@ class RoleFrame(QWidget):
     def update_nav(self):
         """根据角色 + step 更新标签 / 提示文字"""
         guide = {
-            ("alice",0): ("input N,available slots", "paste A1 to Bob"),
-            ("alice",1): ("input B2",                "paste A2 to ZY"),
-            ("alice",2): ("input j",                 "your common time"),
-            ("bob"  ,0): ("input A1",                "paste B1 to ZY"),
-            ("bob"  ,1): ("input available slots",   "paste B2 to Alice"),
-            ("bob"  ,2): ("input i",                 "paste j to Alice"),
-            ("zy"   ,0): ("input B1 + A2",           "paste i to Bob"),
+            ("alice",0): ("input N,available slots", "input first"),
+            ("alice",1): ("input B2",                "paste A1 to Bob"),
+            ("alice",2): ("input j",                 "paste A2 to ZY"),
+            ("alice",3): ("get you result",          "your common time"),
+            ("bob"  ,0): ("input A1",                "input first"),
+            ("bob"  ,1): ("input available slots",   "paste B1 to ZY"),
+            ("bob"  ,2): ("input i",                 "paste B2 to Alice"),
+            ("bob"  ,3): ("wait for alice's res",    "paste j to Alice"),
+            ("zy"   ,0): ("input B1 and A2 in two line", "input first"),
+            ("zy"   ,1): ("waiting for alice's res", "paste i to Bob"),
         }
         inp, out = guide.get((self.role,self.step),("input:","output:"))
         self.input_label.setText(inp)
         self.output_label.setText(out)
+        self.input_edit.clear()
 
     # ------- 主状态机 -------
     def next_step(self):
@@ -117,8 +121,8 @@ class RoleFrame(QWidget):
         if self.step == 0:
             # 解析输入: "N,slot1,slot2,…"
             raw = self.input_edit.toPlainText().strip()
-            parts = [x for x in raw.replace("，",",").split(",") if x]
-            assert len(parts)>=2, "请按“N,slot1,slot2”格式输入"
+            parts = [x for x in raw.replace("，",",").split() if x]
+            assert len(parts)>=2, "请按多行格式输入"
             N = int(parts[0]); slots = list(map(int, parts[1:]))
             p = generate_large_prime(); P = generate_n_random_primes(N,p)
             alpha = random.randint(3, p-3)
@@ -167,7 +171,8 @@ class RoleFrame(QWidget):
 
         elif self.step == 1:
             raw = self.input_edit.toPlainText().strip()
-            slots = list(map(int,[x for x in raw.replace("，",",").split(",") if x]))
+            slots = list(map(int,[x for x in raw.replace("，",",").split() if x]))
+            assert len(slots)>=2, "请按多行格式输入"
             N,p,P,beta = self.state["N"],self.state["p"],self.state["P"],self.state["beta"]
             B2 = [P[i-1] for i in slots]
             while len(B2)<N:
